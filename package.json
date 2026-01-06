@@ -1,0 +1,23 @@
+{
+	"name": "pipes",
+	"module": "index.ts",
+	"type": "module",
+	"private": true,
+	"scripts": {
+		"dev": "bun run --hot src/index.ts",
+		"start": "bun run src/index.ts",
+		"format": "bun run --bun biome check --write ."
+	},
+	"devDependencies": {
+		"@types/bun": "latest"
+	},
+	"peerDependencies": {
+		"typescript": "^5"
+	},
+	"dependencies": {
+		"bun-sqlite-migrations": "^1.0.2",
+		"kysely": "^0.28.9",
+		"kysely-bun-sqlite": "^0.4.0",
+		"nanoid": "^5.1.6"
+	}
+}

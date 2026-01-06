@@ -1,4 +1,6 @@
-# Indiko
+# Pipes
+
+This is my interperitation of yahoo pipes from back in the day! It is designed to allow you to string together pipelines of data and do cool stuff!
 
 The canonical repo for this is hosted on tangled over at [`dunkirk.sh/pipes`](https://tangled.org/@dunkirk.sh/pipes)
 
@@ -7,8 +9,8 @@ The canonical repo for this is hosted on tangled over at [`dunkirk.sh/pipes`](ht
 1. Clone the repository:
 
 ```bash
-git clone https://github.com/taciturnaxolotl/indiko.git
-cd indiko
+git clone https://github.com/taciturnaxolotl/pipes.git
+cd pipes
 ```
 
 2. Install dependencies:
@@ -26,20 +28,27 @@ cp .env.example .env
 Configure the following environment variables:
 
 ```env
-ORIGIN=https://your-indiko-domain.com
-RP_ID=your-indiko-domain.com
+ORIGIN=https://pipes.yourdomain.com
 PORT=3000
 NODE_ENV=production
+DATABASE_URL=data/pipes.db
+
+# Indiko OAuth Configuration
+INDIKO_CLIENT_ID=ikc_xxxxxxxxxxxxxxxxxxxxx
+INDIKO_CLIENT_SECRET=iks_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+INDIKO_ORIGIN=https://indiko.dunkirk.sh
+INDIKO_REDIRECT_URI=https://pipes.yourdomain.com/auth/callback
 ```
 
-- `ORIGIN` - Full URL where Indiko is hosted (must match RP_ID)
-- `RP_ID` - Domain for WebAuthn (no protocol, matches ORIGIN domain)
-- `PORT` - Port to run the server on
-- `NODE_ENV` - Environment (dev/production)
+The database will be automatically created at `./data/pipes.db` on first run.
 
-The database will be automatically created at `./indiko.db` on first run.
+4. Set up Indiko OAuth:
+   - Go to your Indiko instance
+   - Navigate to Admin → OAuth Clients
+   - Create a new client with the redirect URI matching your `INDIKO_REDIRECT_URI`
+   - Copy the Client ID and Secret to your `.env` file
 
-4. Start the server:
+5. Start the server:
 
 ```bash
 # Development (with hot reload)
