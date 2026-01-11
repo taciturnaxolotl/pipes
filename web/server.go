@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+	"strconv"
 
 	"github.com/charmbracelet/log"
 	"github.com/kierank/pipes/auth"
@@ -65,6 +66,7 @@ func (s *Server) Start() error {
 	mux.HandleFunc("/api/pipes", s.sessionManager.RequireAuth(s.handleAPIPipes))
 	mux.HandleFunc("/api/pipes/", s.sessionManager.RequireAuth(s.handleAPIPipe))
 	mux.HandleFunc("/api/node-types", s.handleAPINodeTypes)
+	mux.HandleFunc("/api/executions/", s.sessionManager.RequireAuth(s.handleAPIExecution))
 
 	s.server = &http.Server{
 		Addr:    fmt.Sprintf("%s:%d", s.cfg.Host, s.cfg.Port),
@@ -170,8 +172,36 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handlePipeEditor(w http.ResponseWriter, r *http.Request) {
-	// TODO: Implement pipe editor
-	w.Write([]byte("Pipe editor - coming soon!"))
+	user := auth.GetUserFromContext(r.Context())
+	if user == nil {
+		http.Redirect(w, r, "/auth/login", http.StatusSeeOther)
+		return
+	}
+
+	// Extract pipe ID from path
+	pipeID := r.URL.Path[len("/pipes/"):]
+	if len(pipeID) > 5 && pipeID[len(pipeID)-5:] == "/edit" {
+		pipeID = pipeID[:len(pipeID)-5]
+	}
+
+	pipe, err := s.db.GetPipe(pipeID)
+	if err != nil || pipe == nil {
+		s.renderError(w, "Pipe Not Found", "The pipe you're looking for doesn't exist or has been deleted.", "")
+		return
+	}
+
+	if pipe.UserID != user.ID {
+		s.renderError(w, "Access Denied", "You don't have permission to access this pipe.", "")
+		return
+	}
+
+	data := map[string]interface{}{
+		"User": user,
+		"Pipe": pipe,
+	}
+
+	w.Header().Set("Content-Type", "text/html")
+	s.templates.ExecuteTemplate(w, "editor.html", data)
 }
 
 func (s *Server) handleAPIMe(w http.ResponseWriter, r *http.Request) {
@@ -242,7 +272,23 @@ func (s *Server) handleAPIPipe(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Extract pipe ID from path
-	pipeID := r.URL.Path[len("/api/pipes/"):]
+	path := r.URL.Path[len("/api/pipes/"):]
+
+	// Check if it's an execute request
+	if len(path) > 8 && path[len(path)-8:] == "/execute" {
+		pipeID := path[:len(path)-8]
+		s.handlePipeExecute(w, r, pipeID, user)
+		return
+	}
+
+	// Check if it's an executions request
+	if len(path) > 11 && path[len(path)-11:] == "/executions" {
+		pipeID := path[:len(path)-11]
+		s.handlePipeExecutions(w, r, pipeID, user)
+		return
+	}
+
+	pipeID := path
 
 	switch r.Method {
 	case "GET":
@@ -344,6 +390,134 @@ func (s *Server) handleAPINodeTypes(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(nodeTypes)
+}
+
+func (s *Server) handlePipeExecute(w http.ResponseWriter, r *http.Request, pipeID string, user *store.User) {
+	if r.Method != "POST" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	pipe, err := s.db.GetPipe(pipeID)
+	if err != nil || pipe == nil {
+		http.Error(w, "Pipe not found", http.StatusNotFound)
+		return
+	}
+
+	if pipe.UserID != user.ID {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
+	// Execute the pipe
+	executor := engine.NewExecutor(s.db)
+	executionID, err := executor.Execute(r.Context(), pipeID, "manual")
+	if err != nil {
+		s.logger.Error("pipe execution failed", "pipe_id", pipeID, "error", err)
+		http.Error(w, fmt.Sprintf("Execution failed: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"executionId": executionID,
+		"status":      "started",
+	})
+}
+
+func (s *Server) handlePipeExecutions(w http.ResponseWriter, r *http.Request, pipeID string, user *store.User) {
+	if r.Method != "GET" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	pipe, err := s.db.GetPipe(pipeID)
+	if err != nil || pipe == nil {
+		http.Error(w, "Pipe not found", http.StatusNotFound)
+		return
+	}
+
+	if pipe.UserID != user.ID {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
+	// Get limit from query params
+	limitStr := r.URL.Query().Get("limit")
+	limit := 10
+	if limitStr != "" {
+		if l, err := strconv.Atoi(limitStr); err == nil && l > 0 && l <= 100 {
+			limit = l
+		}
+	}
+
+	executions, err := s.db.GetPipeExecutions(pipeID, limit)
+	if err != nil {
+		s.logger.Error("failed to get executions", "pipe_id", pipeID, "error", err)
+		http.Error(w, "Failed to get executions", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(executions)
+}
+
+func (s *Server) handleAPIExecution(w http.ResponseWriter, r *http.Request) {
+	user := auth.GetUserFromContext(r.Context())
+	if user == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Extract execution ID from path
+	path := r.URL.Path[len("/api/executions/"):]
+
+	// Check if it's a logs request
+	if len(path) > 5 && path[len(path)-5:] == "/logs" {
+		executionID := path[:len(path)-5]
+		s.handleExecutionLogs(w, r, executionID, user)
+		return
+	}
+
+	http.Error(w, "Not found", http.StatusNotFound)
+}
+
+func (s *Server) handleExecutionLogs(w http.ResponseWriter, r *http.Request, executionID string, user *store.User) {
+	// Get the execution to check ownership
+	exec, err := s.db.GetExecution(executionID)
+	if err != nil {
+		s.logger.Error("failed to get execution", "execution_id", executionID, "error", err)
+		http.Error(w, "Failed to get execution", http.StatusInternalServerError)
+		return
+	}
+
+	if exec == nil {
+		http.Error(w, "Execution not found", http.StatusNotFound)
+		return
+	}
+
+	// Verify user owns the pipe
+	pipe, err := s.db.GetPipe(exec.PipeID)
+	if err != nil || pipe == nil {
+		http.Error(w, "Pipe not found", http.StatusNotFound)
+		return
+	}
+
+	if pipe.UserID != user.ID {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
+	// Get logs
+	logs, err := s.db.GetExecutionLogs(executionID)
+	if err != nil {
+		s.logger.Error("failed to get logs", "execution_id", executionID, "error", err)
+		http.Error(w, "Failed to get logs", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(logs)
 }
 
 // Helper functions

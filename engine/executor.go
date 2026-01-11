@@ -135,7 +135,10 @@ func (e *Executor) executePipeline(ctx context.Context, executionID, pipeID stri
 		}
 
 		nodeResults[nodeID] = output
-		e.db.LogExecution(executionID, nodeID, "info", fmt.Sprintf("Processed %d items", len(output)))
+		
+		// Log output data
+		outputJSON, _ := json.Marshal(output)
+		e.db.LogExecutionWithData(executionID, nodeID, "data", fmt.Sprintf("%d items", len(output)), string(outputJSON))
 	}
 
 	// Return item count from last node

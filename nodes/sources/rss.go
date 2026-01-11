@@ -36,11 +36,17 @@ func (n *RSSSourceNode) Execute(ctx context.Context, config map[string]interface
 	// Convert feed items to generic interface{} slices
 	var items []interface{}
 	for _, item := range feed.Items {
+		// Flatten author field - extract name if it's a Person struct
+		var author string
+		if item.Author != nil {
+			author = item.Author.Name
+		}
+		
 		items = append(items, map[string]interface{}{
 			"title":       item.Title,
 			"description": item.Description,
 			"link":        item.Link,
-			"author":      item.Author,
+			"author":      author,
 			"published":   item.Published,
 			"updated":     item.Updated,
 			"guid":        item.GUID,

@@ -9,14 +9,14 @@ import (
 )
 
 type Pipe struct {
-	ID          string
-	UserID      string
-	Name        string
-	Description string
-	Config      string
-	IsPublic    bool
-	CreatedAt   int64
-	UpdatedAt   int64
+	ID          string `json:"id"`
+	UserID      string `json:"user_id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Config      string `json:"config"`
+	IsPublic    bool   `json:"is_public"`
+	CreatedAt   int64  `json:"created_at"`
+	UpdatedAt   int64  `json:"updated_at"`
 }
 
 type ScheduledJob struct {

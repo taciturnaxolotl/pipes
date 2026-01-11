@@ -9,26 +9,26 @@ import (
 )
 
 type PipeExecution struct {
-	ID             string
-	PipeID         string
-	Status         string
-	TriggerType    string
-	StartedAt      int64
-	CompletedAt    *int64
-	DurationMs     *int64
-	ItemsProcessed *int
-	ErrorMessage   *string
-	Metadata       *string
+	ID             string  `json:"id"`
+	PipeID         string  `json:"pipe_id"`
+	Status         string  `json:"status"`
+	TriggerType    string  `json:"trigger_type"`
+	StartedAt      int64   `json:"started_at"`
+	CompletedAt    *int64  `json:"completed_at,omitempty"`
+	DurationMs     *int64  `json:"duration_ms,omitempty"`
+	ItemsProcessed *int    `json:"items_processed,omitempty"`
+	ErrorMessage   *string `json:"error_message,omitempty"`
+	Metadata       *string `json:"metadata,omitempty"`
 }
 
 type ExecutionLog struct {
-	ID          string
-	ExecutionID string
-	NodeID      string
-	Level       string
-	Message     string
-	Timestamp   int64
-	Metadata    *string
+	ID          string  `json:"id"`
+	ExecutionID string  `json:"execution_id"`
+	NodeID      string  `json:"node_id"`
+	Level       string  `json:"level"`
+	Message     string  `json:"message"`
+	Timestamp   int64   `json:"timestamp"`
+	Metadata    *string `json:"metadata,omitempty"`
 }
 
 func (db *DB) CreateExecution(id, pipeID, triggerType string, startedAt int64) error {
@@ -180,6 +180,22 @@ func (db *DB) LogExecution(executionID, nodeID, level, message string) error {
 		INSERT INTO execution_logs (id, execution_id, node_id, level, message, timestamp)
 		VALUES (?, ?, ?, ?, ?, ?)
 	`, logID, executionID, nodeID, level, message, timestamp)
+
+	if err != nil {
+		return fmt.Errorf("insert log: %w", err)
+	}
+
+	return nil
+}
+
+func (db *DB) LogExecutionWithData(executionID, nodeID, level, message, data string) error {
+	logID := uuid.New().String()
+	timestamp := time.Now().Unix()
+
+	_, err := db.Exec(`
+		INSERT INTO execution_logs (id, execution_id, node_id, level, message, timestamp, metadata)
+		VALUES (?, ?, ?, ?, ?, ?, ?)
+	`, logID, executionID, nodeID, level, message, timestamp, data)
 
 	if err != nil {
 		return fmt.Errorf("insert log: %w", err)

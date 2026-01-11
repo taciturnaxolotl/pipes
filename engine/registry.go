@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/kierank/pipes/nodes"
+	"github.com/kierank/pipes/nodes/outputs"
 	"github.com/kierank/pipes/nodes/sources"
 	"github.com/kierank/pipes/nodes/transforms"
 )
@@ -20,10 +21,17 @@ func NewRegistry() *Registry {
 	}
 
 	// Register built-in nodes
+	// Sources
 	r.Register(&sources.RSSSourceNode{})
+
+	// Transforms
 	r.Register(&transforms.FilterNode{})
 	r.Register(&transforms.SortNode{})
 	r.Register(&transforms.LimitNode{})
+
+	// Outputs
+	r.Register(&outputs.JSONOutputNode{})
+	r.Register(&outputs.RSSOutputNode{})
 
 	return r
 }
