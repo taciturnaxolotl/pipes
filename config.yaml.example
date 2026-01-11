@@ -1,0 +1,23 @@
+# Pipes Configuration
+# Secrets are loaded from .env file (see .env.example)
+# Environment variables override values in this file
+
+# Server settings
+host: localhost
+port: 3001
+origin: http://localhost:3001
+env: development
+log_level: info  # debug, info, warn, error, fatal
+
+# Database
+db_path: pipes.db
+
+# OAuth (Indiko)
+indiko_url: https://indiko.example.com  # Use HTTPS (HTTP redirects cause issues)
+indiko_client_id: http://localhost:3001
+indiko_client_secret: ${INDIKO_CLIENT_SECRET}  # Loaded from .env
+oauth_callback_url: http://localhost:3001/auth/callback
+
+# Session
+session_secret: ${SESSION_SECRET}  # Loaded from .env
+session_cookie_name: pipes_session

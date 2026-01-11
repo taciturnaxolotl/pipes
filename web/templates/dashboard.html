@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Pipes</title>
+    <link rel="icon" type="image/svg+xml" href="/public/favicon.svg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300..700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Space Grotesk', sans-serif;
+            background: #f5f5f0;
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        header {
+            background: #fff;
+            border: 4px solid #26242b;
+            padding: 20px 30px;
+            margin-bottom: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 8px 8px 0 #26242b;
+        }
+        h1 {
+            color: #26242b;
+            font-size: 32px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: -0.02em;
+        }
+        h1 .accent {
+            color: #2563eb;
+        }
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        .user-name {
+            color: #26242b;
+            font-weight: 600;
+            font-size: 16px;
+        }
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            background: #ff6b35;
+            color: #fff;
+            border: 3px solid #26242b;
+            font-size: 14px;
+            font-weight: 700;
+            text-decoration: none;
+            font-family: 'Space Grotesk', sans-serif;
+            text-transform: uppercase;
+            letter-spacing: 0.05rem;
+            box-shadow: 4px 4px 0 #26242b;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .btn:hover {
+            transform: translate(2px, 2px);
+            box-shadow: 2px 2px 0 #26242b;
+        }
+        .btn:active {
+            transform: translate(4px, 4px);
+            box-shadow: 0 0 0 #26242b;
+        }
+        .btn-secondary {
+            background: #2563eb;
+            color: #fff;
+        }
+        .btn-auth {
+            background: #AB4967;
+            color: #fff;
+        }
+        .content {
+            background: #fff;
+            border: 4px solid #26242b;
+            padding: 40px;
+            box-shadow: 8px 8px 0 #26242b;
+        }
+        h2 {
+            color: #26242b;
+            font-size: 28px;
+            margin-bottom: 30px;
+            text-transform: uppercase;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+        h2 .accent {
+            color: #ff6b35;
+        }
+        .pipes-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 24px;
+        }
+        .pipe-card {
+            background: #fff;
+            border: 3px solid #26242b;
+            padding: 24px;
+            box-shadow: 6px 6px 0 #26242b;
+            transition: all 0.15s ease;
+        }
+        .pipe-card:hover {
+            transform: translate(-2px, -2px);
+            box-shadow: 8px 8px 0 #26242b;
+        }
+        .pipe-name {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 12px;
+            color: #26242b;
+            text-transform: uppercase;
+            letter-spacing: -0.01em;
+        }
+        .pipe-desc {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 80px 20px;
+        }
+        .empty-state p {
+            font-size: 20px;
+            margin-bottom: 30px;
+            color: #666;
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><span class="accent">Pipes</span> Dashboard</h1>
+            <div class="user-info">
+                <span class="user-name">{{ .User.Name }}</span>
+                <form action="/auth/logout" method="post" style="display: inline;">
+                    <button type="submit" class="btn btn-auth">Logout</button>
+                </form>
+            </div>
+        </header>
+
+        <div class="content">
+            <h2>Your <span class="accent">Pipes</span></h2>
+            {{if .Pipes}}
+                <div class="pipes-list">
+                    {{range .Pipes}}
+                    <div class="pipe-card">
+                        <div class="pipe-name">{{.Name}}</div>
+                        {{if .Description}}
+                        <div class="pipe-desc">{{.Description}}</div>
+                        {{end}}
+                        <a href="/pipes/{{.ID}}/edit" class="btn btn-secondary">Edit</a>
+                    </div>
+                    {{end}}
+                </div>
+            {{else}}
+                <div class="empty-state">
+                    <p>You haven't created any pipes yet!</p>
+                    <button class="btn" onclick="createPipe()">Create Your First Pipe</button>
+                </div>
+            {{end}}
+        </div>
+    </div>
+
+    <script>
+        function createPipe() {
+            fetch('/api/pipes', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: 'Untitled Pipe' })
+            })
+            .then(r => r.json())
+            .then(pipe => {
+                window.location.href = '/pipes/' + pipe.id + '/edit';
+            })
+            .catch(err => alert('Failed to create pipe: ' + err));
+        }
+    </script>
+</body>
+</html>

@@ -1,12 +1,23 @@
-node_modules/
-.wrangler/
-dist/
-.dev.vars
+# Go
+pipes
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Environment and config
 .env
-bun.lockb
-data/
+config.yaml
+
+# Database
 *.db
 *.db-shm
 *.db-wal
+data/
 
+# OS
 .DS_Store
+
+# IDE
+.idea/
+.vscode/
