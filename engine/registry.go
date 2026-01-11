@@ -23,15 +23,21 @@ func NewRegistry() *Registry {
 	// Register built-in nodes
 	// Sources
 	r.Register(&sources.RSSSourceNode{})
+	r.Register(&sources.HTTPSourceNode{})
 
 	// Transforms
 	r.Register(&transforms.FilterNode{})
 	r.Register(&transforms.SortNode{})
 	r.Register(&transforms.LimitNode{})
+	r.Register(&transforms.MergeNode{})
+	r.Register(&transforms.MapNode{})
+	r.Register(&transforms.RegexNode{})
+	r.Register(&transforms.TruncateNode{})
 
 	// Outputs
 	r.Register(&outputs.JSONOutputNode{})
 	r.Register(&outputs.RSSOutputNode{})
+	r.Register(&outputs.WebhookOutputNode{})
 
 	return r
 }

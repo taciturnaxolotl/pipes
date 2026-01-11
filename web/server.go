@@ -14,6 +14,7 @@ import (
 	"github.com/kierank/pipes/config"
 	"github.com/kierank/pipes/engine"
 	"github.com/kierank/pipes/store"
+	"github.com/mmcdole/gofeed"
 )
 
 type Server struct {
@@ -68,6 +69,7 @@ func (s *Server) Start() error {
 	mux.HandleFunc("/api/pipes/", s.sessionManager.RequireAuth(s.handleAPIPipe))
 	mux.HandleFunc("/api/node-types", s.handleAPINodeTypes)
 	mux.HandleFunc("/api/executions/", s.sessionManager.RequireAuth(s.handleAPIExecution))
+	mux.HandleFunc("/api/feed-info", s.sessionManager.RequireAuth(s.handleAPIFeedInfo))
 
 	// Public feed routes
 	mux.HandleFunc("/feeds/", s.handlePublicFeed)
@@ -398,6 +400,29 @@ func (s *Server) handleAPINodeTypes(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(nodeTypes)
+}
+
+func (s *Server) handleAPIFeedInfo(w http.ResponseWriter, r *http.Request) {
+	url := r.URL.Query().Get("url")
+	if url == "" {
+		http.Error(w, "url parameter required", http.StatusBadRequest)
+		return
+	}
+
+	fp := gofeed.NewParser()
+	feed, err := fp.ParseURLWithContext(url, r.Context())
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to parse feed: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"title":       feed.Title,
+		"description": feed.Description,
+		"link":        feed.Link,
+		"item_count":  len(feed.Items),
+	})
 }
 
 func (s *Server) handlePipeExecute(w http.ResponseWriter, r *http.Request, pipeID string, user *store.User) {

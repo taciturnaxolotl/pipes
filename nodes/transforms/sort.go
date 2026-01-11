@@ -31,7 +31,7 @@ func (n *SortNode) Execute(ctx context.Context, config map[string]interface{}, i
 	}
 
 	if order == "" {
-		order = "asc"
+		order = "desc"
 	}
 
 	// Create a sortable slice
@@ -46,8 +46,23 @@ func (n *SortNode) Execute(ctx context.Context, config map[string]interface{}, i
 			return false
 		}
 
-		iVal := fmt.Sprintf("%v", getNestedValue(iMap, field))
-		jVal := fmt.Sprintf("%v", getNestedValue(jMap, field))
+		iRaw := getNestedValue(iMap, field)
+		jRaw := getNestedValue(jMap, field)
+
+		// Try numeric comparison first (for timestamps, etc.)
+		iNum, iIsNum := toFloat(iRaw)
+		jNum, jIsNum := toFloat(jRaw)
+
+		if iIsNum && jIsNum {
+			if order == "desc" {
+				return iNum > jNum
+			}
+			return iNum < jNum
+		}
+
+		// Fall back to string comparison
+		iVal := fmt.Sprintf("%v", iRaw)
+		jVal := fmt.Sprintf("%v", jRaw)
 
 		if order == "desc" {
 			return iVal > jVal
@@ -72,18 +87,19 @@ func (n *SortNode) GetConfigSchema() *nodes.ConfigSchema {
 				Label:       "Field Path",
 				Type:        "text",
 				Required:    true,
-				Placeholder: "published",
-				HelpText:    "Field to sort by",
+				Placeholder: "published_at",
+				HelpText:    "Field to sort by (use published_at or updated_at for date sorting)",
 			},
 			{
 				Name:         "order",
 				Label:        "Order",
 				Type:         "select",
 				Required:     false,
-				DefaultValue: "asc",
+				DefaultValue: "desc",
+				HelpText:     "Descending = newest first (for dates), Ascending = oldest first",
 				Options: []nodes.FieldOption{
-					{Value: "asc", Label: "Ascending"},
-					{Value: "desc", Label: "Descending"},
+					{Value: "desc", Label: "Descending (newest first)"},
+					{Value: "asc", Label: "Ascending (oldest first)"},
 				},
 			},
 		},

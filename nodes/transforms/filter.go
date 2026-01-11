@@ -69,21 +69,6 @@ func matchesFilter(item interface{}, field, operator, value string) bool {
 	}
 }
 
-func getNestedValue(obj map[string]interface{}, path string) interface{} {
-	parts := strings.Split(path, ".")
-	var current interface{} = obj
-
-	for _, part := range parts {
-		if m, ok := current.(map[string]interface{}); ok {
-			current = m[part]
-		} else {
-			return nil
-		}
-	}
-
-	return current
-}
-
 func (n *FilterNode) ValidateConfig(config map[string]interface{}) error {
 	return nil
 }

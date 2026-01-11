@@ -818,8 +818,8 @@
             if (!draggedNode) return;
 
             const containerRect = document.getElementById('canvas-container').getBoundingClientRect();
-            draggedNode.position.x = e.clientX - containerRect.left - dragOffset.x;
-            draggedNode.position.y = e.clientY - containerRect.top - dragOffset.y;
+            draggedNode.position.x = e.clientX - containerRect.left - dragOffset.x - panOffset.x;
+            draggedNode.position.y = e.clientY - containerRect.top - dragOffset.y - panOffset.y;
 
             render();
         }
@@ -867,8 +867,8 @@
 
         function onConnectionMouseMove(e) {
             const containerRect = document.getElementById('canvas-container').getBoundingClientRect();
-            const mouseX = e.clientX - containerRect.left;
-            const mouseY = e.clientY - containerRect.top;
+            const mouseX = e.clientX - containerRect.left - panOffset.x;
+            const mouseY = e.clientY - containerRect.top - panOffset.y;
             
             connectionDrag = { x: mouseX, y: mouseY };
             
@@ -992,8 +992,25 @@
                 }
 
                 input.value = node.config[field.name] || field.defaultValue || '';
-                input.addEventListener('change', (e) => {
+                input.addEventListener('change', async (e) => {
                     node.config[field.name] = e.target.value;
+                    
+                    // Auto-fetch feed title for RSS source URL field
+                    if (node.type === 'rss-source' && field.name === 'url' && e.target.value) {
+                        try {
+                            const res = await fetch(`/api/feed-info?url=${encodeURIComponent(e.target.value)}`);
+                            if (res.ok) {
+                                const info = await res.json();
+                                if (info.title && node.label === 'RSS Feed') {
+                                    node.label = info.title;
+                                    render();
+                                    showToast(`Feed: ${info.title}`, 'success');
+                                }
+                            }
+                        } catch (err) {
+                            // Ignore fetch errors
+                        }
+                    }
                 });
 
                 group.appendChild(input);
@@ -1232,6 +1249,9 @@
         }
 
         async function executePipe() {
+            // Save first
+            await savePipe();
+            
             const res = await fetch(`/api/pipes/${pipeID}/execute`, {
                 method: 'POST'
             });
@@ -1249,7 +1269,8 @@
                 // Poll for completion
                 pollExecutionStatus(data.executionId);
             } else {
-                showToast('Failed to execute pipe', 'error');
+                const errorText = await res.text();
+                showToast(errorText || 'Failed to execute pipe', 'error');
             }
         }
 
@@ -1315,16 +1336,26 @@
             const toast = document.createElement('div');
             toast.className = `toast ${type}`;
             toast.textContent = message;
+            
+            // Click to dismiss
+            toast.style.cursor = 'pointer';
+            toast.onclick = () => {
+                toast.classList.add('exit');
+                setTimeout(() => container.removeChild(toast), 200);
+            };
 
             container.appendChild(toast);
 
-            // Auto-dismiss after 3 seconds
+            // Auto-dismiss: errors stay longer
+            const duration = type === 'error' ? 8000 : 3000;
             setTimeout(() => {
-                toast.classList.add('exit');
-                setTimeout(() => {
-                    container.removeChild(toast);
-                }, 200); // Match animation duration
-            }, 3000);
+                if (toast.parentNode) {
+                    toast.classList.add('exit');
+                    setTimeout(() => {
+                        if (toast.parentNode) container.removeChild(toast);
+                    }, 200);
+                }
+            }, duration);
         }
     </script>
 
