@@ -59,3 +59,7 @@ func NewContext(executionID, pipeID string, db *store.DB) *Context {
 func (c *Context) Log(nodeID, level, message string) {
 	c.DB.LogExecution(c.ExecutionID, nodeID, level, message)
 }
+
+func (c *Context) SaveOutput(format, content, contentType string) error {
+	return c.DB.SavePipeOutput(c.PipeID, format, content, contentType)
+}

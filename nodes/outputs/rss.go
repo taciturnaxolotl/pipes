@@ -87,6 +87,12 @@ func (n *RSSOutputNode) Execute(ctx context.Context, config map[string]interface
 	}
 
 	rssOutput := fmt.Sprintf("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n%s", string(xmlData))
+
+	// Save output to database for public access
+	if err := execCtx.SaveOutput("rss", rssOutput, "application/rss+xml"); err != nil {
+		execCtx.Log("rss-output", "error", "Failed to save output: "+err.Error())
+	}
+
 	execCtx.Log("rss-output", "info", rssOutput)
 
 	return data, nil

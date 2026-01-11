@@ -7,6 +7,7 @@ import (
 	"html/template"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/charmbracelet/log"
 	"github.com/kierank/pipes/auth"
@@ -67,6 +68,9 @@ func (s *Server) Start() error {
 	mux.HandleFunc("/api/pipes/", s.sessionManager.RequireAuth(s.handleAPIPipe))
 	mux.HandleFunc("/api/node-types", s.handleAPINodeTypes)
 	mux.HandleFunc("/api/executions/", s.sessionManager.RequireAuth(s.handleAPIExecution))
+
+	// Public feed routes
+	mux.HandleFunc("/feeds/", s.handlePublicFeed)
 
 	s.server = &http.Server{
 		Addr:    fmt.Sprintf("%s:%d", s.cfg.Host, s.cfg.Port),
@@ -322,6 +326,7 @@ func (s *Server) handleAPIPipe(w http.ResponseWriter, r *http.Request) {
 			Name        string                 `json:"name"`
 			Description string                 `json:"description"`
 			Config      map[string]interface{} `json:"config"`
+			IsPublic    *bool                  `json:"is_public"`
 		}
 
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -338,6 +343,9 @@ func (s *Server) handleAPIPipe(w http.ResponseWriter, r *http.Request) {
 		if req.Config != nil {
 			configJSON, _ := json.Marshal(req.Config)
 			pipe.Config = string(configJSON)
+		}
+		if req.IsPublic != nil {
+			pipe.IsPublic = *req.IsPublic
 		}
 
 		if err := s.db.UpdatePipe(pipe); err != nil {
@@ -518,6 +526,76 @@ func (s *Server) handleExecutionLogs(w http.ResponseWriter, r *http.Request, exe
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(logs)
+}
+
+func (s *Server) handlePublicFeed(w http.ResponseWriter, r *http.Request) {
+	// Parse path: /feeds/{id}.{format} or /feeds/{id}/{format}
+	path := strings.TrimPrefix(r.URL.Path, "/feeds/")
+	if path == "" {
+		http.Error(w, "Not found", http.StatusNotFound)
+		return
+	}
+
+	var pipeID, format string
+
+	// Check for extension format: id.json or id.rss
+	if strings.Contains(path, ".") {
+		parts := strings.SplitN(path, ".", 2)
+		pipeID = parts[0]
+		format = parts[1]
+	} else if strings.Contains(path, "/") {
+		// Check for path format: id/json or id/rss
+		parts := strings.SplitN(path, "/", 2)
+		pipeID = parts[0]
+		format = parts[1]
+	} else {
+		// Default to json if no format specified
+		pipeID = path
+		format = "json"
+	}
+
+	// Look up pipe by ID
+	pipe, err := s.db.GetPipe(pipeID)
+	if err != nil {
+		s.logger.Error("failed to get pipe", "pipe_id", pipeID, "error", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	if pipe == nil || !pipe.IsPublic {
+		http.Error(w, "Feed not found", http.StatusNotFound)
+		return
+	}
+
+	// Get the cached output
+	output, err := s.db.GetPipeOutput(pipe.ID, format)
+	if err != nil {
+		s.logger.Error("failed to get pipe output", "pipe_id", pipe.ID, "format", format, "error", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	// Auto-run if no output exists
+	if output == nil {
+		executor := engine.NewExecutor(s.db)
+		_, err := executor.Execute(r.Context(), pipe.ID, "auto")
+		if err != nil {
+			s.logger.Error("auto-execute failed", "pipe_id", pipe.ID, "error", err)
+			http.Error(w, "Failed to generate feed", http.StatusInternalServerError)
+			return
+		}
+
+		// Try to get output again
+		output, err = s.db.GetPipeOutput(pipe.ID, format)
+		if err != nil || output == nil {
+			http.Error(w, "Feed not available in requested format", http.StatusNotFound)
+			return
+		}
+	}
+
+	w.Header().Set("Content-Type", output.ContentType)
+	w.Header().Set("Cache-Control", "public, max-age=300")
+	w.Write([]byte(output.Content))
 }
 
 // Helper functions

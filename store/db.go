@@ -78,6 +78,19 @@ func (db *DB) initSchema() error {
 
 	CREATE INDEX IF NOT EXISTS idx_pipes_user_id ON pipes(user_id);
 
+	-- Pipe outputs (cached output for public feeds)
+	CREATE TABLE IF NOT EXISTS pipe_outputs (
+		id TEXT PRIMARY KEY,
+		pipe_id TEXT NOT NULL REFERENCES pipes(id) ON DELETE CASCADE,
+		format TEXT NOT NULL,
+		content TEXT NOT NULL,
+		content_type TEXT NOT NULL,
+		created_at INTEGER NOT NULL
+	);
+
+	CREATE INDEX IF NOT EXISTS idx_outputs_pipe_id ON pipe_outputs(pipe_id);
+	CREATE UNIQUE INDEX IF NOT EXISTS idx_outputs_pipe_format ON pipe_outputs(pipe_id, format);
+
 	-- Scheduled jobs
 	CREATE TABLE IF NOT EXISTS scheduled_jobs (
 		id TEXT PRIMARY KEY,

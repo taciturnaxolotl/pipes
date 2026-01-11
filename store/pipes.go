@@ -19,6 +19,15 @@ type Pipe struct {
 	UpdatedAt   int64  `json:"updated_at"`
 }
 
+type PipeOutput struct {
+	ID          string `json:"id"`
+	PipeID      string `json:"pipe_id"`
+	Format      string `json:"format"`
+	Content     string `json:"content"`
+	ContentType string `json:"content_type"`
+	CreatedAt   int64  `json:"created_at"`
+}
+
 type ScheduledJob struct {
 	ID             string
 	PipeID         string
@@ -128,6 +137,46 @@ func (db *DB) DeletePipe(id string) error {
 		return fmt.Errorf("delete pipe: %w", err)
 	}
 	return nil
+}
+
+func (db *DB) SavePipeOutput(pipeID, format, content, contentType string) error {
+	now := time.Now().Unix()
+	id := uuid.New().String()
+
+	_, err := db.Exec(`
+		INSERT INTO pipe_outputs (id, pipe_id, format, content, content_type, created_at)
+		VALUES (?, ?, ?, ?, ?, ?)
+		ON CONFLICT(pipe_id, format) DO UPDATE SET
+			content = excluded.content,
+			content_type = excluded.content_type,
+			created_at = excluded.created_at
+	`, id, pipeID, format, content, contentType, now)
+
+	if err != nil {
+		return fmt.Errorf("save pipe output: %w", err)
+	}
+
+	return nil
+}
+
+func (db *DB) GetPipeOutput(pipeID, format string) (*PipeOutput, error) {
+	output := &PipeOutput{}
+
+	err := db.QueryRow(`
+		SELECT id, pipe_id, format, content, content_type, created_at
+		FROM pipe_outputs
+		WHERE pipe_id = ? AND format = ?
+	`, pipeID, format).Scan(&output.ID, &output.PipeID, &output.Format, &output.Content, &output.ContentType, &output.CreatedAt)
+
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("get pipe output: %w", err)
+	}
+
+	return output, nil
 }
 
 func (db *DB) CreateScheduledJob(pipeID, cronExpression string, nextRunAt int64) (*ScheduledJob, error) {

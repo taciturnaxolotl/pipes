@@ -373,6 +373,10 @@
             <span class="accent">{{.Pipe.Name}}</span>
         </div>
         <div class="header-actions">
+            <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer;">
+                <input type="checkbox" id="is-public" onchange="togglePublic()" {{if .Pipe.IsPublic}}checked{{end}}>
+                Public
+            </label>
             <button onclick="executePipe()" class="btn btn-small">▶ Run</button>
             <button onclick="savePipe()" class="btn btn-small btn-secondary">💾 Save</button>
             <a href="/dashboard" class="btn btn-small" style="text-decoration: none;">← Back</a>
@@ -1004,6 +1008,58 @@
                 form.appendChild(group);
             });
 
+            // Show feed URL for output nodes
+            if (nodeType.category === 'output') {
+                const feedSection = document.createElement('div');
+                feedSection.className = 'output-section';
+                feedSection.style.marginTop = '20px';
+
+                const feedTitle = document.createElement('div');
+                feedTitle.className = 'output-title';
+                feedTitle.textContent = 'Public Feed URL';
+                feedSection.appendChild(feedTitle);
+
+                const format = node.type === 'rss-output' ? 'rss' : 'json';
+                const feedUrl = `${window.location.origin}/feeds/${pipeID}.${format}`;
+
+                const feedLink = document.createElement('div');
+                feedLink.style.cssText = 'display: flex; gap: 8px; align-items: center;';
+                
+                const feedInput = document.createElement('input');
+                feedInput.className = 'form-input';
+                feedInput.type = 'text';
+                feedInput.value = feedUrl;
+                feedInput.readOnly = true;
+                feedInput.style.flex = '1';
+                feedLink.appendChild(feedInput);
+
+                const copyBtn = document.createElement('button');
+                copyBtn.className = 'btn btn-small';
+                copyBtn.textContent = '📋';
+                copyBtn.title = 'Copy URL';
+                copyBtn.onclick = () => {
+                    navigator.clipboard.writeText(feedUrl);
+                    showToast('URL copied!', 'success');
+                };
+                feedLink.appendChild(copyBtn);
+
+                const openBtn = document.createElement('button');
+                openBtn.className = 'btn btn-small';
+                openBtn.textContent = '↗';
+                openBtn.title = 'Open feed';
+                openBtn.onclick = () => window.open(feedUrl, '_blank');
+                feedLink.appendChild(openBtn);
+
+                feedSection.appendChild(feedLink);
+
+                const feedHelp = document.createElement('div');
+                feedHelp.className = 'form-help';
+                feedHelp.textContent = 'Make pipe public and run it to generate the feed.';
+                feedSection.appendChild(feedHelp);
+
+                form.appendChild(feedSection);
+            }
+
             // Data display section (always visible)
             const dataSection = document.createElement('div');
             dataSection.className = 'output-section';
@@ -1057,6 +1113,23 @@
         }
 
         let executionStatusInterval = null;
+
+        async function togglePublic() {
+            const isPublic = document.getElementById('is-public').checked;
+            
+            const res = await fetch(`/api/pipes/${pipeID}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ is_public: isPublic })
+            });
+
+            if (res.ok) {
+                showToast(isPublic ? 'Pipe is now public' : 'Pipe is now private', 'success');
+            } else {
+                showToast('Failed to update visibility', 'error');
+                document.getElementById('is-public').checked = !isPublic;
+            }
+        }
 
         async function viewNodeData(nodeID) {
             const dataContent = document.getElementById(`data-content-${nodeID}`);

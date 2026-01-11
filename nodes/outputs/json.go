@@ -33,9 +33,13 @@ func (n *JSONOutputNode) Execute(ctx context.Context, config map[string]interfac
 		return nil, err
 	}
 
+	// Save output to database for public access
+	if err := execCtx.SaveOutput("json", string(jsonData), "application/json"); err != nil {
+		execCtx.Log("json-output", "error", "Failed to save output: "+err.Error())
+	}
+
 	execCtx.Log("json-output", "info", string(jsonData))
 
-	// Return the data (for potential chaining)
 	return data, nil
 }
 
