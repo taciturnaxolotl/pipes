@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/xml"
 	"fmt"
+	"time"
 
 	"github.com/kierank/pipes/nodes"
 )
@@ -32,10 +33,13 @@ func (n *RSSOutputNode) Execute(ctx context.Context, config map[string]interface
 
 	// Build RSS feed
 	type RSSItem struct {
-		Title       string `xml:"title"`
-		Description string `xml:"description"`
-		Link        string `xml:"link"`
-		PubDate     string `xml:"pubDate,omitempty"`
+		Title       string   `xml:"title"`
+		Description string   `xml:"description"`
+		Link        string   `xml:"link"`
+		PubDate     string   `xml:"pubDate,omitempty"`
+		GUID        string   `xml:"guid,omitempty"`
+		Author      string   `xml:"author,omitempty"`
+		Categories  []string `xml:"category,omitempty"`
 	}
 
 	type RSSChannel struct {
@@ -62,10 +66,25 @@ func (n *RSSOutputNode) Execute(ctx context.Context, config map[string]interface
 			Title:       getStringFromMap(itemMap, "title", "Untitled"),
 			Description: getStringFromMap(itemMap, "description", ""),
 			Link:        getStringFromMap(itemMap, "link", ""),
+			GUID:        getStringFromMap(itemMap, "guid", ""),
+			Author:      getStringFromMap(itemMap, "author", ""),
 		}
 
-		if pubDate, ok := itemMap["pubDate"].(string); ok {
+		// Try to get published date - check "published" first, then fall back to "published_at" timestamp
+		if pubDate, ok := itemMap["published"].(string); ok && pubDate != "" {
 			rssItem.PubDate = pubDate
+		} else if timestamp, ok := itemMap["published_at"].(int64); ok && timestamp > 0 {
+			// Convert Unix timestamp to RFC1123 format for RSS
+			rssItem.PubDate = time.Unix(timestamp, 0).UTC().Format(time.RFC1123Z)
+		}
+
+		// Extract categories if present
+		if categories, ok := itemMap["categories"].([]interface{}); ok {
+			for _, cat := range categories {
+				if catStr, ok := cat.(string); ok {
+					rssItem.Categories = append(rssItem.Categories, catStr)
+				}
+			}
 		}
 
 		items = append(items, rssItem)

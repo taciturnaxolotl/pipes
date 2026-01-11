@@ -1185,9 +1185,12 @@
                 const data = JSON.parse(dataLog.metadata);
                 dataContent.className = 'output-content';
                 
-                // Format data based on node type
+                // Format data based on node type or data structure
                 const node = nodes.find(n => n.id === nodeID);
-                if (node && node.type === 'rss-source' && Array.isArray(data)) {
+                const isRSSData = Array.isArray(data) && data.length > 0 && 
+                    data[0].title && (data[0].link || data[0].published || data[0].published_at);
+                
+                if ((node && node.type === 'rss-source' && Array.isArray(data)) || isRSSData) {
                     // Format RSS items with colored field names
                     dataContent.classList.add('rss-view');
                     let html = '<pre>';
@@ -1202,8 +1205,33 @@
                         if (item.published) {
                             html += `<span class="key">published:</span> ${escapeHtml(item.published)}\n`;
                         }
+                        if (item.published_at) {
+                            const date = new Date(item.published_at * 1000);
+                            html += `<span class="key">published_at:</span> ${item.published_at} (${date.toLocaleString()})\n`;
+                        }
+                        if (item.updated_at) {
+                            const date = new Date(item.updated_at * 1000);
+                            html += `<span class="key">updated_at:</span> ${item.updated_at} (${date.toLocaleString()})\n`;
+                        }
+                        if (item.categories && item.categories.length > 0) {
+                            html += `<span class="key">categories:</span> ${escapeHtml(item.categories.join(', '))}\n`;
+                        }
                         if (item.description) {
-                            html += `<span class="key">description:</span> ${escapeHtml(item.description)}\n`;
+                            const preview = item.description.length > 200 ? item.description.substring(0, 200) + '...' : item.description;
+                            html += `<span class="key">description:</span> ${escapeHtml(preview)}\n`;
+                        }
+                        if (item.content && item.content !== item.description) {
+                            const preview = item.content.length > 200 ? item.content.substring(0, 200) + '...' : item.content;
+                            html += `<span class="key">content:</span> ${escapeHtml(preview)}\n`;
+                        }
+                        if (item.image) {
+                            html += `<span class="key">image:</span> ${escapeHtml(item.image)}\n`;
+                        }
+                        if (item.enclosures && item.enclosures.length > 0) {
+                            html += `<span class="key">enclosures:</span> ${item.enclosures.length} file(s)\n`;
+                            item.enclosures.forEach(enc => {
+                                html += `  - ${escapeHtml(enc.type || 'unknown')}: ${escapeHtml(enc.url)}\n`;
+                            });
                         }
                         html += '\n';
                     });
